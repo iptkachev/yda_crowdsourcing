@@ -5,6 +5,7 @@ from torch import nn
 from torch.nn import *
 import pytorch_lightning as pl
 import timm
+from sklearn.metrics import f1_score
     
 class ImageClassifier(pl.LightningModule):
     def __init__(self, trunk=None, class_weight=None, learning_rate=1e-3):
@@ -21,7 +22,10 @@ class ImageClassifier(pl.LightningModule):
         return probabilities
 
     def predict(self, x):
-        return torch.max(self.forward(x), 1)[1]
+        return self.predict_class(self.forward(x))
+
+    def predict_class(self, x):
+        return torch.max(x, 1)[1]
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(),
@@ -32,12 +36,16 @@ class ImageClassifier(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
         loss = nn.CrossEntropyLoss(weight=self.class_weight)(y_hat, y)
+        self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
         loss = nn.CrossEntropyLoss(weight=self.class_weight)(y_hat, y)
-        self.log("val_loss", loss)
+        return y, self.predict_class(y_hat)
 
-        
+    def validation_epoch_end(self, outputs) -> None:
+        y, y_hat = zip(*outputs)
+        y, y_hat = torch.cat(y).numpy(), torch.cat(y_hat).numpy()
+        self.log("val_f1_score", f1_score(y, y_hat, labels=1, average='binary'))

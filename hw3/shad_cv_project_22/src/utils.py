@@ -41,7 +41,7 @@ class ImagesDataset(Dataset):
 
         return img, label
 
-def evaluate_model(model, dataset, batch_size=32, num_workers=4):
+def evaluate_model(model, dataset, batch_size=32, num_workers=2):
     model.eval()
     loader = torch.utils.data.DataLoader(dataset, 
                                            batch_size=batch_size,
@@ -57,3 +57,19 @@ def evaluate_model(model, dataset, batch_size=32, num_workers=4):
             
     return labels, predictions
 
+
+def evaluate_model_probs(model, dataset, batch_size=32, num_workers=2):
+    model.eval()
+    loader = torch.utils.data.DataLoader(dataset,
+                                         batch_size=batch_size,
+                                         num_workers=num_workers,
+                                         shuffle=False)
+    predictions = []
+    labels = []
+    with torch.no_grad():
+        for x, y in tqdm(loader):
+            prediction = model.predict_proba(x).numpy()
+            predictions += list(prediction)
+            labels += list(y.numpy())
+
+    return labels, predictions
